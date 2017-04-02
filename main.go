@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/golang/glog"
-	"github.com/ottoyiu/calico-ec2-srcdst-controller/common"
+	"github.com/ottoyiu/kubernetes-ec2-srcdst-controller/common"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
@@ -29,7 +29,7 @@ type Controller struct {
 }
 
 const (
-	SrcDstCheckDisabledAnnotation = "srcdst-controller.v1/srcdst-check-disabled"
+	SrcDstCheckDisabledAnnotation = "ec2-srcdst-controller.aws.v1/srcdst-check-disabled"
 )
 
 func main() {
@@ -91,7 +91,7 @@ func newController(client kubernetes.Interface, ec2Client *ec2.EC2) *Controller 
 }
 
 func (c *Controller) handler(obj interface{}) {
-	// this handler disables src dest
+	// this handler makes sure that all nodes within a cluster has its src/dst check disabled in EC2
 	node := obj.(*v1.Node)
 	glog.V(4).Infof("Received update of node: %s", node.Name)
 
@@ -148,6 +148,7 @@ func (c *Controller) disableSrcDstCheck(instanceID string) error {
 
 func getInstanceIDFromProviderID(providerID string) (string, error) {
 	// providerID is in this format: aws:///availability-zone/instanceID
+	// TODO: why the extra slash in the provider ID of kubernetes anyways?
 	providerID = strings.Replace(providerID, "///", "//", 1)
 	url, err := url.Parse(providerID)
 	if err != nil {
