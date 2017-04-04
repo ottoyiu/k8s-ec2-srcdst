@@ -53,7 +53,7 @@ Specifying the verbosity level of logging to 4 using the `-v` flag will get debu
 
 You only need to specify the location to kubeconfig using the `-kubeconfig` flag if you are running the controller out of the cluster for development and testing purpose.
 
-As well, if you are running this controller outside of the cluster or a node that does not have the proper IAM instance role, you can specify AWS credentials as environmental variables:
+As well, if you are running this controller outside of the cluster or a node that does not have the proper IAM instance profile, you can specify AWS credentials as environmental variables:
 
 ### Environmental Variables
 Variable                       | Description
