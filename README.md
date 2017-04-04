@@ -8,7 +8,6 @@ To deploy this controller into your Kubernetes cluster, please make sure your cl
 Then run the following to deploy the stable version of kubernetes-ec2-srcdst-controller:
 ```
 kubectl create -f raw.github.com/FILLTHISOUT
-
 ```
 
 
@@ -32,24 +31,23 @@ kubectl create -f deploy/controller.yaml
 ```
 
 ```
-	./kubernetes-ec2-srcdst-controller --help
-	Usage of ./kubernetes-ec2-srcdst-controller:
-		-alsologtostderr
-					log to standard error as well as files
-		-kubeconfig string
-					Path to a kubeconfig file
-		-log_backtrace_at value
-					when logging hits line file:N, emit a stack trace
-		-log_dir string
-					If non-empty, write log files in this directory
-		-logtostderr
-					log to standard error instead of files
-		-stderrthreshold value
-					logs at or above this threshold go to stderr
-		-v value
-					log level for V logs
-		-vmodule value
-					comma-separated list of pattern=N settings for file-filtered logging
+Usage of ./kubernetes-ec2-srcdst-controller:
+  -alsologtostderr
+        log to standard error as well as files
+  -kubeconfig string
+        Path to a kubeconfig file
+  -log_backtrace_at value
+        when logging hits line file:N, emit a stack trace
+  -log_dir string
+        If non-empty, write log files in this directory
+  -logtostderr
+        log to standard error instead of files
+  -stderrthreshold value
+        logs at or above this threshold go to stderr
+  -v value
+        log level for V logs
+  -vmodule value
+        comma-separated list of pattern=N settings for file-filtered logging
 ```
 Specifying the verbosity level of logging to 4 using the `-v` flag will get debug level output.
 
