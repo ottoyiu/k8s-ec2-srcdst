@@ -31,7 +31,7 @@ type Controller struct {
 }
 
 const (
-	SrcDstCheckDisabledAnnotation = "ottoyiu/kubernetes-ec2-srcdst-controller/srcdst-check-disabled"
+	SrcDstCheckDisabledAnnotation = "kubernetes-ec2-srcdst-controller.ottoyiu.com/srcdst-check-disabled"
 )
 
 func main() {

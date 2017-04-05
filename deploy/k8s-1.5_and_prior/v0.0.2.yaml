@@ -14,9 +14,11 @@ spec:
     metadata:
       labels:
         k8s-app: kubernetes-ec2-srcdst-controller
+      annotations:
+        scheduler.alpha.kubernetes.io/tolerations: '[{"key":"dedicated", "value":"master"}]'
     spec:
       containers:
-        - image: ottoyiu/kubernetes-ec2-srcdst-controller:v0.0.1
+        - image: ottoyiu/kubernetes-ec2-srcdst-controller:v0.0.2
           name: kubernetes-ec2-srcdst-controller
           resources:
             limits:
@@ -41,6 +43,3 @@ spec:
             path: "/etc/ssl/certs/ca-certificates.crt"
       nodeSelector:
         kubernetes.io/role: master
-      tolerations:
-        - key: dedicated
-          value: master
