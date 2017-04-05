@@ -1,17 +1,18 @@
 PROJECT_NAME := kubernetes-ec2-srcdst-controller
-TAG := $(shell git describe --tags --dirty)
 GOFILES:=$(shell find . -name '*.go' | grep -v -E '(./vendor)')
+VERSION?=$(shell git describe --tags --dirty)
 
-all: build_image
+all: clean bin image
 
-build_image:
-	docker build -t ${PROJECT_NAME} .
+image:
+	docker build -t ${PROJECT_NAME}:${VERSION} .
 
 bin: bin/linux/${PROJECT_NAME}
 
+bin/%: LDFLAGS=-X main.Version=${VERSION}
 bin/%: $(GOFILES)
 	mkdir -p $(dir $@)
-	GOOS=$(word 1, $(subst /, ,$*)) GOARCH=amd64 go build -o $@ github.com/ottoyiu/kubernetes-ec2-srcdst-controller
+	CGO_ENABLED=0 GOOS=$(word 1, $(subst /, ,$*)) GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o $@ github.com/ottoyiu/kubernetes-ec2-srcdst-controller
 
 check:
 	@find . -name vendor -prune -o -name '*.go' -exec gofmt -s -d {} +

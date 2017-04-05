@@ -22,6 +22,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+var Version string = "" // set on build time using ldflags
+
 type Controller struct {
 	client     kubernetes.Interface
 	controller cache.ControllerInterface
@@ -29,7 +31,7 @@ type Controller struct {
 }
 
 const (
-	SrcDstCheckDisabledAnnotation = "ec2-srcdst-controller.aws.v1/srcdst-check-disabled"
+	SrcDstCheckDisabledAnnotation = "ottoyiu/kubernetes-ec2-srcdst-controller/srcdst-check-disabled"
 )
 
 func main() {
@@ -48,6 +50,8 @@ func main() {
 	if err != nil {
 		glog.Fatalf("Failed to create kubernetes client: %v", err)
 	}
+
+	glog.Infof("kubernetes-ec2-srcdst-controller: %v", Version)
 
 	awsSession := session.New()
 	awsConfig := &aws.Config{}
@@ -122,7 +126,7 @@ func (c *Controller) handler(obj interface{}) {
 			return
 		}
 		glog.Infof("Marking node %s with SrcDstCheckDisabledAnnotation", node.Name)
-		nodeCopy.Annotations[SrcDstCheckDisabledAnnotation] = ""
+		nodeCopy.Annotations[SrcDstCheckDisabledAnnotation] = "true"
 		if _, err := c.client.Core().Nodes().Update(nodeCopy); err != nil {
 			glog.Errorf("Failed to set %s annotation: %v", SrcDstCheckDisabledAnnotation, err)
 		}

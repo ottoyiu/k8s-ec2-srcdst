@@ -1,0 +1,46 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: kubernetes-ec2-srcdst-controller
+  namespace: kube-system
+  labels:
+    k8s-app: kubernetes-ec2-srcdst-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: kubernetes-ec2-srcdst-controller
+  template:
+    metadata:
+      labels:
+        k8s-app: kubernetes-ec2-srcdst-controller
+    spec:
+      containers:
+        - image: ottoyiu/kubernetes-ec2-srcdst-controller:v0.0.1
+          name: kubernetes-ec2-srcdst-controller
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          command:
+            - ./kubernetes-ec2-srcdst-controller
+          env:
+            - name: AWS_REGION
+              value: {{AWS_REGION}}
+          volumeMounts:
+            - name: ssl-certs
+              mountPath: {{SSL_CERT_PATH}}
+              readOnly: true
+          imagePullPolicy: "Always"
+      volumes:
+        - name: ssl-certs
+          hostPath:
+            path: "/etc/ssl/certs/ca-certificates.crt"
+      nodeSelector:
+        kubernetes.io/role: master
+      tolerations:
+        - key: dedicated
+          value: master

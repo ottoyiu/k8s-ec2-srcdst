@@ -4,11 +4,7 @@ This is useful for Calico deployments in AWS where routing within a VPC subnet c
 
 ## Quick Start
 To deploy this controller into your Kubernetes cluster, please make sure your cluster fufills the requirements as listed below.
-
-Then run the following to deploy the stable version of kubernetes-ec2-srcdst-controller:
-```
-kubectl create -f raw.github.com/FILLTHISOUT
-```
+Then go to `deploy/README.md` for a quick start guide on how to deploy this to your Kubernetes cluster.
 
 
 ## Requirements
@@ -21,15 +17,6 @@ If you are running a Kubernetes cluster in AWS created by kops, only the master 
 
 
 ## Usage
-To deploy this controller into your Kubernetes cluster, please make sure your cluster fufills the requirements as listed above.
-
-First, checkout this repository, and with the working directory set as the root of this repository, run the `kubectl create` command:
-```
-git clone https://github.com/ottoyiu/kubernetes-ec2-srcdst-controller.git
-cd kubernetes-ec2-srcdst-controller
-kubectl create -f deploy/controller.yaml
-```
-
 ```
 Usage of ./kubernetes-ec2-srcdst-controller:
   -alsologtostderr
@@ -58,7 +45,7 @@ As well, if you are running this controller outside of the cluster or a node tha
 ### Environmental Variables
 Variable                       | Description
 ------------------------------ | ----------
-`AWS_REGION`                   | Region Name (eg. us-west-2)
+`AWS_REGION`                   | Region Name (eg. us-west-2) - *required*
 `AWS_ACCESS_KEY`               | AWS Access Key (Optional if using IAM instance profiles)
 `AWS_SECRET_ACCESS_KEY`        | AWS Secret Access Key (Optional if using IAM instance profiles)
 
