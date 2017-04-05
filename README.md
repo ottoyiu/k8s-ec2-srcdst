@@ -13,7 +13,7 @@ kubernetes-ec2-srcdst-controller must have the ability to access the Kubernetes 
 kubernetes-ec2-srcdst-controller also needs the ability to modify the EC2 instance attributes of the nodes running in the Kubernetes cluster. Please make sure to schedule the controller on a node with the IAM policy:
 - `ec2:ModifyInstanceAttribute`
 
-If you are running a Kubernetes cluster in AWS created by kops, only the master node(s) have that IAM policy set (`ec2:*`). The example `deploy/controller.yaml` already sets the NodeAffinity to only deploy the controller on one of the master nodes.
+If you are running a Kubernetes cluster in AWS created by kops, only the master node(s) have that IAM policy set (`ec2:*`). The deployment mainfest files  (`deploy/*/*.yaml`) already sets the NodeAffinity and Tolerations to only deploy the controller on one of the master nodes.
 
 
 ## Usage
@@ -40,7 +40,7 @@ Specifying the verbosity level of logging to 4 using the `-v` flag will get debu
 
 You only need to specify the location to kubeconfig using the `-kubeconfig` flag if you are running the controller out of the cluster for development and testing purpose.
 
-As well, if you are running this controller outside of the cluster or a node that does not have the proper IAM instance profile, you can specify AWS credentials as environmental variables:
+The AWS Region must be set as an environmental variable. As well, if you are running this controller outside of the cluster or a node that does not have the proper IAM instance profile, you will need to specify AWS credentials as environmental variables:
 
 ### Environmental Variables
 Variable                       | Description
