@@ -1,0 +1,21 @@
+language: go
+install: make
+sudo: required
+services:
+  - docker
+after_success:
+  - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+  - export REPO=ottoyiu/kubernetes-ec2-srcdst-controller
+  - export BRANCH=$(if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then echo $TRAVIS_BRANCH; else echo $TRAVIS_PULL_REQUEST_BRANCH; fi)
+  - export TAG=`if [ "$BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH; fi`
+  - docker build -t $REPO:$COMMIT .
+  - docker tag $REPO:$COMMIT $REPO:$TAG
+  - docker tag $REPO:$COMMIT $REPO:travis-$TRAVIS_BUILD_NUMBER
+  - docker push $REPO
+script: make bin
+env:
+  global:
+  - COMMIT=${TRAVIS_COMMIT::8}
+  - secure: EpcgQyi83BXoMMCGqmGjKqi46XgGjOZn88MWJMtdpPzv9YxvkZfbsmorxC/F6CHz+YzjV28hduSG2Lc0UZE0BBQSdBPEhJM4np1xU1SK0Uev4pLXd0JTMH5ryTZhtD+zm0jE1QheTqecIri3lDWKjwFs4rQAUO2EJdDoxNatXaAQ05t+S7FdIQPulefmh2U7MosGDmd1dGmlOww5Xeexf4P8zXFbE6gNGQP3964uGk9HtzMmBOuwwQX/6HeT4uLcZ12iiiIfN9J9jNEZ0fAYm0F+OEF1f4bOKFhG4qW2rwf+qH099s2otHd3+bFvQqkTXFOKjfwuFcsQ01b8Iew7WMOgE9rLQ9bCkS05wL5AFhdyz/YBGZLhA/fX66Jo+YlKtrnmMb9Z/gQf+dMKTyQi9wu3kA4Gx7TkX9ouAkZS2aDiGyMxPX9Vns21BuSGptk+3LqTFgprOcV/iHbQY39RBkayzP2EyZqZ9MHCDbGIUJvQYwCT09E3KtiubdPXBw4BL0PWHMFFZRFX2dbcK8FN9AGQrWbmqYpGfUqtv0zEodVt7fSPC1PsGnrynLoGZtEw3FQdB2mkHd2FgM+DjsGjbGTjauliQzM/tBrDG8+CZH78VY6RoqvfJX1TAssbc1ysaspMNuzMmLkGfO05WtZZUqcMAyNUJFMBCfrlljEISUE=
+  - secure: t+6VDis6coU26afGXRKbKAUbv90RzVi1X5j4xy/YDrPqWxUcqyDtMtRAqG3+E4b0yv3oKrpyckk4ElsQGk5IbTxAAf6biLUpy9c1IKzCFYYy0uHqCV9octQeRT+z+Aa/ByQvKwdJD570aSJK33JlXd2HragRxqpoxqzUcLPeAI3fBVxoGNTSuos/R98YJdoWALpn/c85BKLa/DznGOUwg1Otm/grtovIl3GWHVRbEgk+s2TtNOloAdvzWwKyZ1JSg8Z/pPJZ3/W+RQBBMKhjAsnlEHMUdjE4NuxuL+1Odke+pQSexnXFI+46294XHe3clQKSNyWad9R4GumtP3+he2Iy4KUi7WYK/TSAjTGyolnwwFOZQ6FJzzsF1pn4lTlwJCWEV07h5JJcWZCKonn0JfAq2+1rrBe4PmMStzvqwKsmvo4FpzbS1wfSdWzvq9z74DDgf19/xoFXcutK3OadjFZBNjAWLeKBgwl35Qm3zn13MfoShcpF3jYMZk+ThkqKzfgTGUtOoxcGxer17NhTjYcesvL2eTPMK+NDoDLeORKadJ7BtI7BNSbor/SEEKLpSjurUnM/s+JZz5gmGNiLRjIhUW2vthnMA+ZboCyOPnjXF6h6wyhMkhubW24UT3Cbxp6WfA7Iqex+1dygbnHwKnhGogjk09EbxXt/qSUuwK0=
+  - secure: OwnNkYxrDB0CqyyH7eklJupiDHOjAFLLHODFtxqDGdc7zI+d+WmaJ+d5Nb647XRLquyiQN0VqT+jILRxNBkeRkJvVo3KUn8JSOALZdLPn51jQcEm0VxEGEzz6VFNlv23FZMq/uDIHFHqLMNGA+xIsE5IhetEp8LXF8WyzB3Z/N1f4hSPuM3d+huoZw6dnk5dJ2t6HUCNB1Syv2sE89Q7dC7cKQvzoT6QDD4zt59id5ME6jhqt/T+oF+tkihfNPx06xt22wrCI87ogAnXMuiHX0XU0wrS53NnJ49SXMWNwOqOCb6oS0sdfLX0Z0jbFl+t9ovPbHkJK2hHhXZ9MKEcXy5o6Xt7A7aEyrpRxvaKqZEttuotkqSxRYEZ7jw3qTRPwhKKruE9PwfWk4cS1uCDx9zN6BXsqsEMfJiUPT9Co9544pXRPTNJNqMis9PB+cvKL5E3qqECVuLabIa3wS9ggxQt/dZeSmBCisFrCF2ihB7ksfWcafNZKo0cW7j2faAvNufNdfZu50NeXq2ma6h8y2Q1Lr/Bt9LG6sCksRt4nPAXDWlisNaI4U/6OkRoTqs6mDU2qe3kHKJ7qQgFaziR6fdT68hewfUwXOGWjA1dIP1fxpm2TG4NAeEbYtE9NSrWVaRm8EhrFUTstHa12L4+trmiku0N/OsyprlFfCSZJxw=
