@@ -1,11 +1,15 @@
 PROJECT_NAME := kubernetes-ec2-srcdst-controller
 GOFILES:=$(shell find . -name '*.go' | grep -v -E '(./vendor)')
 VERSION?=$(shell git describe --tags --dirty)
+IMAGE_TAG:=ottoyiu/${PROJECT_NAME}:${VERSION}
 
 all: clean bin image
 
 image:
-	docker build -t ${PROJECT_NAME}:${VERSION} .
+	docker build -t ${IMAGE_TAG} .
+
+push_image:
+	docker push ${IMAGE_TAG}
 
 bin: bin/linux/${PROJECT_NAME}
 
