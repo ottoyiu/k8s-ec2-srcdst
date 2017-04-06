@@ -1,4 +1,6 @@
 # kubernetes-ec2-srcdst-controller
+[![Build Status](https://travis-ci.org/ottoyiu/kubernetes-ec2-srcdst-controller.svg?branch=master)](https://travis-ci.org/ottoyiu/kubernetes-ec2-srcdst-controller)
+
 A Kubernetes Controller that will ensure that Source/Dest Check on the nodes within the cluster that are EC2 instances, are disabled.
 This is useful for Calico deployments in AWS where routing within a VPC subnet can be possible without IPIP encapsulation.
 
