@@ -1,5 +1,5 @@
-FROM alpine:3.5
+FROM golang:1.7-alpine
 
-ADD bin/linux/kubernetes-ec2-srcdst-controller /kubernetes-ec2-srcdst-controller
+ADD bin/linux/k8s-ec2-srcdst /k8s-ec2-srcdst
 
-CMD ["/kubernetes-ec2-srcdst-controller"]
+CMD ["/k8s-ec2-srcdst"]

@@ -1,32 +1,26 @@
-package main
+package controller
 
 import (
-	"flag"
 	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/golang/glog"
-	"github.com/ottoyiu/kubernetes-ec2-srcdst-controller/common"
-
+	"github.com/ottoyiu/k8s-ec2-srcdst/pkg/common"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/util/wait"
 	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 )
 
-var Version string = "" // set on build time using ldflags
-
 type Controller struct {
 	client     kubernetes.Interface
-	controller cache.ControllerInterface
+	Controller cache.ControllerInterface
 	ec2Client  *ec2.EC2
 }
 
@@ -34,33 +28,7 @@ const (
 	SrcDstCheckDisabledAnnotation = "kubernetes-ec2-srcdst-controller.ottoyiu.com/srcdst-check-disabled"
 )
 
-func main() {
-	kubeconfig := flag.String("kubeconfig", "", "Path to a kubeconfig file")
-	flag.Set("logtostderr", "true")
-	flag.Parse()
-
-	// Build the client config - optionally using a provided kubeconfig file.
-	config, err := common.GetClientConfig(*kubeconfig)
-	if err != nil {
-		glog.Fatalf("Failed to load client config: %v", err)
-	}
-
-	// Construct the Kubernetes client
-	client, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		glog.Fatalf("Failed to create kubernetes client: %v", err)
-	}
-
-	glog.Infof("kubernetes-ec2-srcdst-controller: %v", Version)
-
-	awsSession := session.New()
-	awsConfig := &aws.Config{}
-	ec2Client := ec2.New(awsSession, awsConfig)
-
-	newController(client, ec2Client).controller.Run(wait.NeverStop)
-}
-
-func newController(client kubernetes.Interface, ec2Client *ec2.EC2) *Controller {
+func NewSrcDstController(client kubernetes.Interface, ec2Client *ec2.EC2) *Controller {
 	c := &Controller{
 		client:    client,
 		ec2Client: ec2Client,
@@ -89,7 +57,7 @@ func newController(client kubernetes.Interface, ec2Client *ec2.EC2) *Controller 
 		},
 	)
 
-	c.controller = controller
+	c.Controller = controller
 
 	return c
 }

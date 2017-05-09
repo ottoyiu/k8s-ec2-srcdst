@@ -1,5 +1,5 @@
-# kubernetes-ec2-srcdst-controller
-[![Build Status](https://travis-ci.org/ottoyiu/kubernetes-ec2-srcdst-controller.svg?branch=master)](https://travis-ci.org/ottoyiu/kubernetes-ec2-srcdst-controller)
+# k8s-ec2-srcdst (formerly as kubernetes-ec2-srcdst-controller)
+[![Build Status](https://travis-ci.org/ottoyiu/k8s-ec2-srcdst.svg?branch=master)](https://travis-ci.org/ottoyiu/k8s-ec2-srcdst)
 
 A Kubernetes Controller that will ensure that Source/Dest Check on the nodes within the cluster that are EC2 instances, are disabled.
 This is useful for Calico deployments in AWS where routing within a VPC subnet can be possible without IPIP encapsulation.
@@ -10,9 +10,9 @@ Then go to `deploy/README.md` for a quick start guide on how to deploy this to y
 
 
 ## Requirements
-kubernetes-ec2-srcdst-controller must have the ability to access the Kubernetes API for a list of nodes and also ability to add an annotation to a node (write access). Please ensure the service account has sufficient access if ran in-cluster. Otherwise, please make sure that the user specified in the kubeconfig has sufficient permissions.
+k8s-ec2-srcdst must have the ability to access the Kubernetes API for a list of nodes and also ability to add an annotation to a node (write access). Please ensure the service account has sufficient access if ran in-cluster. Otherwise, please make sure that the user specified in the kubeconfig has sufficient permissions.
 
-kubernetes-ec2-srcdst-controller also needs the ability to modify the EC2 instance attributes of the nodes running in the Kubernetes cluster. Please make sure to schedule the controller on a node with the IAM policy:
+k8s-ec2-srcdst also needs the ability to modify the EC2 instance attributes of the nodes running in the Kubernetes cluster. Please make sure to schedule the controller on a node with the IAM policy:
 - `ec2:ModifyInstanceAttribute`
 
 If you are running a Kubernetes cluster in AWS created by kops, only the master node(s) have that IAM policy set (`ec2:*`). The deployment mainfest files  (`deploy/*/*.yaml`) already sets the NodeAffinity and Tolerations to only deploy the controller on one of the master nodes.
@@ -20,7 +20,7 @@ If you are running a Kubernetes cluster in AWS created by kops, only the master 
 
 ## Usage
 ```
-Usage of ./kubernetes-ec2-srcdst-controller:
+Usage of ./bin/linux/k8s-ec2-srcdst:
   -alsologtostderr
         log to standard error as well as files
   -kubeconfig string
@@ -35,6 +35,8 @@ Usage of ./kubernetes-ec2-srcdst-controller:
         logs at or above this threshold go to stderr
   -v value
         log level for V logs
+  -version
+        Prints current k8s-ec2-srcdst version
   -vmodule value
         comma-separated list of pattern=N settings for file-filtered logging
 ```
