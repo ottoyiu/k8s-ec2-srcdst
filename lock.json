@@ -1,5 +1,5 @@
 {
-    "memo": "e1fd2527deb398b7bc9a24fb9c74e0d7342eefa9e6d350be73978192f7966998",
+    "memo": "00ea9910c3d4daa86212b2755605b9887631f388befb7488d6b79dd115a4500a",
     "projects": [
         {
             "name": "cloud.google.com/go",
@@ -28,8 +28,8 @@
         },
         {
             "name": "github.com/aws/aws-sdk-go",
-            "version": "v1.8.5",
-            "revision": "18e3cb7dea87468cd8b3fa0a31e00c056ee3d05f",
+            "version": "v1.8.8",
+            "revision": "3a4119172097bf8725eb7c1b96b7957cfe2d92dc",
             "packages": [
                 "aws",
                 "aws/awserr",
@@ -68,7 +68,7 @@
         {
             "name": "github.com/coreos/go-oidc",
             "branch": "master",
-            "revision": "be73733bb8cc830d0205609b95d125215f8e9c70",
+            "revision": "c797a55f1c1001ec3169f1d0fbb4c5523563bec6",
             "packages": [
                 "http",
                 "jose",
@@ -97,8 +97,8 @@
         },
         {
             "name": "github.com/docker/distribution",
-            "version": "v2.6.0",
-            "revision": "325b0804fef3a66309d962357aac3c2ce3f4d329",
+            "version": "v2.6.1",
+            "revision": "a25b9ef0c9fe242ac04bb20d3a028442b7d266b6",
             "packages": [
                 "digest",
                 "reference"
@@ -149,7 +149,7 @@
         {
             "name": "github.com/go-openapi/spec",
             "branch": "master",
-            "revision": "02fb9cd3430ed0581e0ceb4804d5d4b3cc702694",
+            "revision": "e51c28f07047ad90caff03f6450908720d337e0c",
             "packages": [
                 "."
             ]
@@ -157,7 +157,7 @@
         {
             "name": "github.com/go-openapi/swag",
             "branch": "master",
-            "revision": "d5f8ebc3b1c55a4cf6489eeae7354f338cfe299e",
+            "revision": "24ebf76d720bab64f62824d76bced3184a65490d",
             "packages": [
                 "."
             ]
@@ -182,9 +182,10 @@
         {
             "name": "github.com/golang/protobuf",
             "branch": "master",
-            "revision": "2bba0603135d7d7f5cb73b2125beeda19c09f4ef",
+            "revision": "b50ceb1fa9818fa4d78b016c2d4ae025593a7ce3",
             "packages": [
-                "proto"
+                "proto",
+                "ptypes/any"
             ]
         },
         {
@@ -246,7 +247,7 @@
         {
             "name": "github.com/mailru/easyjson",
             "branch": "master",
-            "revision": "2af9a745a611440bab0528e5ac19b2805a1c50eb",
+            "revision": "3f09c2282fc5ad74b3d04a485311f3173c2431d3",
             "packages": [
                 "buffer",
                 "jlexer",
@@ -262,11 +263,27 @@
             ]
         },
         {
+            "name": "github.com/pmezard/go-difflib",
+            "version": "v1.0.0",
+            "revision": "792786c7400a136282c1664665ae0a8db921c6c2",
+            "packages": [
+                "difflib"
+            ]
+        },
+        {
             "name": "github.com/spf13/pflag",
             "branch": "master",
-            "revision": "d16db1e50e33dff1b6cdf37596cef36742128670",
+            "revision": "e57e3eeb33f795204c1ca35f56c44f83227c6e66",
             "packages": [
                 "."
+            ]
+        },
+        {
+            "name": "github.com/stretchr/testify",
+            "version": "v1.1.4",
+            "revision": "69483b4bd14f5845b5a1e55bca19e954e827f1d0",
+            "packages": [
+                "assert"
             ]
         },
         {
@@ -280,7 +297,7 @@
         {
             "name": "golang.org/x/crypto",
             "branch": "master",
-            "revision": "3cb07270c9455e8ad27956a70891c962d121a228",
+            "revision": "122d919ec1efcfb58483215da23f815853e24b81",
             "packages": [
                 "ssh/terminal"
             ]
@@ -288,7 +305,7 @@
         {
             "name": "golang.org/x/net",
             "branch": "master",
-            "revision": "ffcf1bedda3b04ebb15a168a59800a73d6dc0f4d",
+            "revision": "fcc8ed8e87ee07a511396864dad3960b9632e44f",
             "packages": [
                 "context",
                 "context/ctxhttp",
@@ -303,7 +320,7 @@
         {
             "name": "golang.org/x/oauth2",
             "branch": "master",
-            "revision": "7fdf09982454086d5570c7db3e11f360194830ca",
+            "revision": "e7a48207996f497ea86f5736d08d99d45c0b6461",
             "packages": [
                 ".",
                 "google",
@@ -315,7 +332,7 @@
         {
             "name": "golang.org/x/sys",
             "branch": "master",
-            "revision": "9a7256cb28ed514b4e1e5f68959914c4c28a92e0",
+            "revision": "9ccfe848b9db8435a24c424abbc07a921adf1df5",
             "packages": [
                 "unix"
             ]
@@ -323,7 +340,7 @@
         {
             "name": "golang.org/x/text",
             "branch": "master",
-            "revision": "c3b0cbb40eb9a862fdc91f79bed8c7ac8e7a36e8",
+            "revision": "470f45bf29f4147d6fbd7dfd0a02a848e49f5bf4",
             "packages": [
                 "internal/gen",
                 "internal/triegen",
@@ -355,13 +372,22 @@
             ]
         },
         {
+            "name": "google.golang.org/genproto",
+            "branch": "master",
+            "revision": "411e09b969b1170a9f0c467558eb4c4c110d9c77",
+            "packages": [
+                "googleapis/rpc/status"
+            ]
+        },
+        {
             "name": "google.golang.org/grpc",
-            "version": "v1.2.0",
-            "revision": "cdee119ee21e61eef7093a41ba148fa83585e143",
+            "version": "v1.3.0",
+            "revision": "d2e1b51f33ff8c5e4a15560ff049d200e83726c5",
             "packages": [
                 ".",
                 "codes",
                 "credentials",
+                "grpclb/grpc_lb_v1",
                 "grpclog",
                 "internal",
                 "keepalive",
@@ -369,6 +395,7 @@
                 "naming",
                 "peer",
                 "stats",
+                "status",
                 "tap",
                 "transport"
             ]
@@ -384,7 +411,7 @@
         {
             "name": "gopkg.in/yaml.v2",
             "branch": "v2",
-            "revision": "a3f3340b5840cee44f372bddb5880fcbc419b46a",
+            "revision": "cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b",
             "packages": [
                 "."
             ]
