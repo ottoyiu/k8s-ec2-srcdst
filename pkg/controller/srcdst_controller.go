@@ -77,14 +77,14 @@ func (c *Controller) handler(obj interface{}) {
 	if srcDstCheckEnabled {
 		// src dst check disabled annotation does not exist
 		// call AWS ec2 api to disable
-		instanceID, err := getInstanceIDFromProviderID(node.Spec.ProviderID)
+		instanceID, err := GetInstanceIDFromProviderID(node.Spec.ProviderID)
 		if err != nil {
 			glog.Errorf("Fail to retrieve Instance ID from Provider ID: %v", node.Spec.ProviderID)
 			return
 		}
-		err = c.disableSrcDstCheck(instanceID)
+		err = c.disableSrcDstCheck(*instanceID)
 		if err != nil {
-			glog.Errorf("Fail to disable src dst check for EC2 instance: %v; %v", instanceID, err)
+			glog.Errorf("Fail to disable src dst check for EC2 instance: %v; %v", *instanceID, err)
 			return
 		}
 		// We should not modify the cache object directly, so we make a copy first
@@ -118,13 +118,17 @@ func (c *Controller) disableSrcDstCheck(instanceID string) error {
 	return err
 }
 
-func getInstanceIDFromProviderID(providerID string) (string, error) {
+// Only retrieves InstanceID from AWS
+func GetInstanceIDFromProviderID(providerID string) (*string, error) {
 	// providerID is in this format: aws:///availability-zone/instanceID
 	// TODO: why the extra slash in the provider ID of kubernetes anyways?
+	if !strings.HasPrefix(providerID, "aws") {
+		return nil, fmt.Errorf("Node is not in AWS EC2, skipping...")
+	}
 	providerID = strings.Replace(providerID, "///", "//", 1)
 	url, err := url.Parse(providerID)
 	if err != nil {
-		return "", fmt.Errorf("Invalid providerID (%s): %v", providerID, err)
+		return nil, fmt.Errorf("Invalid providerID (%s): %v", providerID, err)
 	}
 	instanceID := url.Path
 	instanceID = strings.Trim(instanceID, "/")
@@ -133,8 +137,8 @@ func getInstanceIDFromProviderID(providerID string) (string, error) {
 	// i-12345678 and i-12345678abcdef01
 	// TODO: Regex match?
 	if strings.Contains(instanceID, "/") || !strings.HasPrefix(instanceID, "i-") {
-		return "", fmt.Errorf("Invalid format for AWS instanceID (%s)", instanceID)
+		return nil, fmt.Errorf("Invalid format for AWS instanceID (%s)", instanceID)
 	}
 
-	return instanceID, nil
+	return &instanceID, nil
 }
