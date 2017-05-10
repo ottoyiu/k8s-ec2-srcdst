@@ -29,14 +29,14 @@ func NewMockEC2Client() *mockEC2Client {
 func TestDisableSrcDstIfEnabled(t *testing.T) {
 	annotations := map[string]string{SrcDstCheckDisabledAnnotation: "true"}
 	spec := v1.NodeSpec{ProviderID: "aws:///us-mock-1/i-abcdefgh"}
-	node_1 := &v1.Node{Spec: spec}
-	node_1.Annotations = annotations
+	node1 := &v1.Node{Spec: spec}
+	node1.Annotations = annotations
 	var tests = []struct {
 		node                     *v1.Node
 		disableSrcDstCheckCalled bool
 	}{
 		{&v1.Node{Spec: spec}, true},
-		{node_1, false},
+		{node1, false},
 	}
 
 	ec2Client := NewMockEC2Client()
