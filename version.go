@@ -1,3 +1,4 @@
 package srcdst
 
-var Version = "" // replaced by the Makefile
+// Version should be replaced by Makefile
+var Version = ""
