@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -28,22 +29,24 @@ func NewMockEC2Client() *mockEC2Client {
 
 func TestDisableSrcDstIfEnabled(t *testing.T) {
 	annotations := map[string]string{SrcDstCheckDisabledAnnotation: "true"}
-	spec := v1.NodeSpec{ProviderID: "aws:///us-mock-1/i-abcdefgh"}
-	node1 := &v1.Node{Spec: spec}
+	node0 := &v1.Node{Spec: v1.NodeSpec{ProviderID: "aws:///us-mock-1/i-abcdefgh"}, ObjectMeta: v1.ObjectMeta{Name: "node0", UID: "01"}}
+	node1 := &v1.Node{Spec: v1.NodeSpec{ProviderID: "aws:///us-mock-1/i-bcdefdaf"}, ObjectMeta: v1.ObjectMeta{Name: "node1", UID: "02"}}
 	node1.Annotations = annotations
+
 	var tests = []struct {
 		node                     *v1.Node
 		disableSrcDstCheckCalled bool
 	}{
-		{&v1.Node{Spec: spec}, true},
+		{node0, true},
 		{node1, false},
 	}
 
 	ec2Client := NewMockEC2Client()
+	kubeClient := fake.NewSimpleClientset(&v1.NodeList{Items: []v1.Node{*node0, *node1}})
 
 	c := &Controller{
 		ec2Client: ec2Client,
-		client:    fake.NewSimpleClientset(),
+		client:    kubeClient,
 	}
 
 	for _, tt := range tests {
@@ -56,7 +59,15 @@ func TestDisableSrcDstIfEnabled(t *testing.T) {
 			tt.disableSrcDstCheckCalled,
 			"Verify that ModifyInstanceAttribute will get called if node needs srcdstcheck disabled",
 		)
-		// TODO: validate that node did get updated with the annotation after ModifyInstanceAttribute is called
+	}
+
+	// Validate that node did get updated with SrcDstCheckDisabledAnnotation
+	updatedNodes, err := kubeClient.Core().Nodes().List(v1.ListOptions{})
+	assert.Nil(t, err)
+	for _, updatedNode := range updatedNodes.Items {
+		fmt.Printf("%v", updatedNode.Annotations)
+		assert.NotEmpty(t, updatedNode.Annotations)
+		assert.NotNil(t, updatedNode.Annotations[SrcDstCheckDisabledAnnotation])
 	}
 }
 
