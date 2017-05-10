@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/golang/glog"
 	"github.com/ottoyiu/k8s-ec2-srcdst/pkg/common"
 	"k8s.io/client-go/kubernetes"
@@ -21,7 +22,7 @@ import (
 type Controller struct {
 	client     kubernetes.Interface
 	Controller cache.ControllerInterface
-	ec2Client  *ec2.EC2
+	ec2Client  ec2iface.EC2API
 }
 
 const (
@@ -66,7 +67,10 @@ func (c *Controller) handler(obj interface{}) {
 	// this handler makes sure that all nodes within a cluster has its src/dst check disabled in EC2
 	node := obj.(*v1.Node)
 	glog.V(4).Infof("Received update of node: %s", node.Name)
+	c.disableSrcDstIfEnabled(node)
+}
 
+func (c *Controller) disableSrcDstIfEnabled(node *v1.Node) {
 	srcDstCheckEnabled := true
 	if node.Annotations != nil {
 		if _, ok := node.Annotations[SrcDstCheckDisabledAnnotation]; ok {
@@ -102,7 +106,6 @@ func (c *Controller) handler(obj interface{}) {
 		glog.V(4).Infof("Skipping node %s because it already has the SrcDstCheckDisabledAnnotation", node.Name)
 
 	}
-
 }
 
 func (c *Controller) disableSrcDstCheck(instanceID string) error {
