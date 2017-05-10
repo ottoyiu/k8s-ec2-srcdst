@@ -26,9 +26,10 @@ type Controller struct {
 }
 
 const (
-	SrcDstCheckDisabledAnnotation = "kubernetes-ec2-srcdst-controller.ottoyiu.com/srcdst-check-disabled"
+	SrcDstCheckDisabledAnnotation = "kubernetes-ec2-srcdst-controller.ottoyiu.com/srcdst-check-disabled" // used as the Node Annotation key
 )
 
+// NewSrcDstController creates a new Kubernetes controller using client-go's Informer
 func NewSrcDstController(client kubernetes.Interface, ec2Client *ec2.EC2) *Controller {
 	c := &Controller{
 		client:    client,
@@ -121,7 +122,7 @@ func (c *Controller) disableSrcDstCheck(instanceID string) error {
 	return err
 }
 
-// Only retrieves InstanceID from AWS
+// GetInstanceIDFromProviderID will only retrieve the InstanceID from AWS
 func GetInstanceIDFromProviderID(providerID string) (*string, error) {
 	// providerID is in this format: aws:///availability-zone/instanceID
 	// TODO: why the extra slash in the provider ID of kubernetes anyways?
