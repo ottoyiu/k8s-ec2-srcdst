@@ -4,6 +4,9 @@ sudo: required
 services:
   - docker
 
+script:
+  - make check
+
 after_success:
   - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
   - export REPO=ottoyiu/kubernetes-ec2-srcdst-controller
