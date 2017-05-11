@@ -1,6 +1,6 @@
 # Deploy
-There are two folders: k8s-1.5_and_prior and post_k8s-1.5. Please use the mainfest files that correspond to the version of your Kubernetes cluster.
-This is due to the new scheduler of Kubernetes 1.6 ignoring tolerations/taints specified as alpha annotations instead of actual fields.
+There are two folders: pre_k8s-1.6 and post_k8s-1.6. Please use the mainfest files that correspond to the version of your Kubernetes cluster.
+This is due to the new scheduler of Kubernetes 1.6 ignoring tolerations/taints specified as alpha annotations instead of actual fields. In the future, it will also include a service account for use with RBAC.
 
 
 # Quick Start
