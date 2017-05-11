@@ -6,7 +6,7 @@ services:
 
 after_success:
   - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-  - export REPO=ottoyiu/kubernetes-ec2-srcdst-controller
+  - export REPO=ottoyiu/k8s-ec2-srcdst
   - export BRANCH=$(if [ "$TRAVIS_PULL_REQUEST" == "false" ]; then echo $TRAVIS_BRANCH; else echo $TRAVIS_PULL_REQUEST_BRANCH; fi)
   - export TAG=`if [ "$BRANCH" == "master" ]; then echo "latest"; else echo $TRAVIS_BRANCH; fi`
   - docker build -t $REPO:$COMMIT .

@@ -1,26 +1,26 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: kubernetes-ec2-srcdst-controller
+  name: k8s-ec2-srcdst
   namespace: kube-system
   labels:
-    k8s-app: kubernetes-ec2-srcdst-controller
+    k8s-app: k8s-ec2-srcdst
 spec:
   replicas: 1
   selector:
     matchLabels:
-      k8s-app: kubernetes-ec2-srcdst-controller
+      k8s-app: k8s-ec2-srcdst
   template:
     metadata:
       labels:
-        k8s-app: kubernetes-ec2-srcdst-controller
+        k8s-app: k8s-ec2-srcdst
       annotations:
         # For 1.6, we keep the old tolerations in case of a downgrade to 1.5
         scheduler.alpha.kubernetes.io/tolerations: '[{"key":"dedicated", "value":"master"}]'
     spec:
       containers:
-        - image: ottoyiu/kubernetes-ec2-srcdst-controller:v0.0.2
-          name: kubernetes-ec2-srcdst-controller
+        - image: ottoyiu/k8s-ec2-srcdst:v0.0.3
+          name: k8s-ec2-srcdst
           resources:
             limits:
               cpu: 100m
@@ -29,7 +29,7 @@ spec:
               cpu: 100m
               memory: 128Mi
           command:
-            - ./kubernetes-ec2-srcdst-controller
+            - ./k8s-ec2-srcdst
           env:
             - name: AWS_REGION
               value: {{AWS_REGION}}
