@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -65,7 +64,6 @@ func TestDisableSrcDstIfEnabled(t *testing.T) {
 	updatedNodes, err := kubeClient.Core().Nodes().List(v1.ListOptions{})
 	assert.Nil(t, err)
 	for _, updatedNode := range updatedNodes.Items {
-		fmt.Printf("%v", updatedNode.Annotations)
 		assert.NotEmpty(t, updatedNode.Annotations)
 		assert.NotNil(t, updatedNode.Annotations[SrcDstCheckDisabledAnnotation])
 	}
