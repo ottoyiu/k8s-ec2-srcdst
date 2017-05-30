@@ -17,16 +17,17 @@ spec:
       annotations:
         scheduler.alpha.kubernetes.io/tolerations: '[{"key":"dedicated", "value":"master"}]'
     spec:
+      hostNetwork: true
       containers:
         - image: ottoyiu/k8s-ec2-srcdst:v0.0.3
           name: k8s-ec2-srcdst
           resources:
             limits:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 10m
+              memory: 64Mi
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 10m
+              memory: 64Mi
           command:
             - ./k8s-ec2-srcdst
           env:
@@ -34,12 +35,12 @@ spec:
               value: {{AWS_REGION}}
           volumeMounts:
             - name: ssl-certs
-              mountPath: {{SSL_CERT_PATH}}
+              mountPath: "/etc/ssl/certs/ca-certificates.crt"
               readOnly: true
           imagePullPolicy: "Always"
       volumes:
         - name: ssl-certs
           hostPath:
-            path: "/etc/ssl/certs/ca-certificates.crt"
+            path: {{SSL_CERT_PATH}}
       nodeSelector:
         kubernetes.io/role: master
