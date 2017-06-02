@@ -265,6 +265,7 @@ func ExampleCodeDeploy_CreateDeployment() {
 		DeploymentConfigName:          aws.String("DeploymentConfigName"),
 		DeploymentGroupName:           aws.String("DeploymentGroupName"),
 		Description:                   aws.String("Description"),
+		FileExistsBehavior:            aws.String("FileExistsBehavior"),
 		IgnoreApplicationStopFailures: aws.Bool(true),
 		Revision: &codedeploy.RevisionLocation{
 			GitHubLocation: &codedeploy.GitHubLocation{
@@ -819,6 +820,27 @@ func ExampleCodeDeploy_ListDeployments() {
 		NextToken: aws.String("NextToken"),
 	}
 	resp, err := svc.ListDeployments(params)
+
+	if err != nil {
+		// Print the error, cast err to awserr.Error to get the Code and
+		// Message from an error.
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Pretty-print the response data.
+	fmt.Println(resp)
+}
+
+func ExampleCodeDeploy_ListGitHubAccountTokenNames() {
+	sess := session.Must(session.NewSession())
+
+	svc := codedeploy.New(sess)
+
+	params := &codedeploy.ListGitHubAccountTokenNamesInput{
+		NextToken: aws.String("NextToken"),
+	}
+	resp, err := svc.ListGitHubAccountTokenNames(params)
 
 	if err != nil {
 		// Print the error, cast err to awserr.Error to get the Code and

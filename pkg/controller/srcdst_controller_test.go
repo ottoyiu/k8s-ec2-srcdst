@@ -6,6 +6,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/pkg/api/v1"
 )
@@ -28,8 +30,12 @@ func NewMockEC2Client() *mockEC2Client {
 
 func TestDisableSrcDstIfEnabled(t *testing.T) {
 	annotations := map[string]string{SrcDstCheckDisabledAnnotation: "true"}
-	node0 := &v1.Node{Spec: v1.NodeSpec{ProviderID: "aws:///us-mock-1/i-abcdefgh"}, ObjectMeta: v1.ObjectMeta{Name: "node0", UID: "01"}}
-	node1 := &v1.Node{Spec: v1.NodeSpec{ProviderID: "aws:///us-mock-1/i-bcdefdaf"}, ObjectMeta: v1.ObjectMeta{Name: "node1", UID: "02"}}
+	masterTaint := &v1.Taint{
+		Key:    "node-role.kubernetes.io/master",
+		Effect: v1.TaintEffectNoSchedule,
+	}
+	node0 := &v1.Node{Spec: v1.NodeSpec{ProviderID: "aws:///us-mock-1/i-abcdefgh", Taints: []v1.Taint{*masterTaint}}, ObjectMeta: metav1.ObjectMeta{Name: "node0", UID: "01"}}
+	node1 := &v1.Node{Spec: v1.NodeSpec{ProviderID: "aws:///us-mock-1/i-bcdefdaf", Taints: []v1.Taint{*masterTaint}}, ObjectMeta: metav1.ObjectMeta{Name: "node1", UID: "02"}}
 	node1.Annotations = annotations
 
 	var tests = []struct {
@@ -61,11 +67,15 @@ func TestDisableSrcDstIfEnabled(t *testing.T) {
 	}
 
 	// Validate that node did get updated with SrcDstCheckDisabledAnnotation
-	updatedNodes, err := kubeClient.Core().Nodes().List(v1.ListOptions{})
+	updatedNodes, err := kubeClient.Core().Nodes().List(metav1.ListOptions{})
 	assert.Nil(t, err)
 	for _, updatedNode := range updatedNodes.Items {
 		assert.NotEmpty(t, updatedNode.Annotations)
 		assert.NotNil(t, updatedNode.Annotations[SrcDstCheckDisabledAnnotation])
+
+		// K8s 1.6 support; ensure that taints still exists and have not been touched
+		assert.NotEmpty(t, updatedNode.Spec.Taints)
+		assert.Equal(t, updatedNode.Spec.Taints[0], *masterTaint)
 	}
 }
 

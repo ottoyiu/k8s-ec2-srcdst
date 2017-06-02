@@ -11,8 +11,8 @@ import (
 	srcdst "github.com/ottoyiu/k8s-ec2-srcdst"
 	"github.com/ottoyiu/k8s-ec2-srcdst/pkg/common"
 	"github.com/ottoyiu/k8s-ec2-srcdst/pkg/controller"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/util/wait"
 )
 
 func main() {

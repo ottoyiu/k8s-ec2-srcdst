@@ -11,17 +11,15 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/golang/glog"
 	"github.com/ottoyiu/k8s-ec2-srcdst/pkg/common"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api"
 	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 )
 
 type Controller struct {
 	client     kubernetes.Interface
-	Controller cache.ControllerInterface
+	Controller cache.Controller
 	ec2Client  ec2iface.EC2API
 }
 
@@ -36,19 +34,14 @@ func NewSrcDstController(client kubernetes.Interface, ec2Client *ec2.EC2) *Contr
 		ec2Client: ec2Client,
 	}
 
+	nodeListWatcher := cache.NewListWatchFromClient(
+		client.Core().RESTClient(),
+		"nodes",
+		v1.NamespaceAll,
+		fields.Everything())
+
 	_, controller := cache.NewInformer(
-		&cache.ListWatch{
-			ListFunc: func(alo api.ListOptions) (runtime.Object, error) {
-				var lo v1.ListOptions
-				v1.Convert_api_ListOptions_To_v1_ListOptions(&alo, &lo, nil)
-				return client.Core().Nodes().List(lo)
-			},
-			WatchFunc: func(alo api.ListOptions) (watch.Interface, error) {
-				var lo v1.ListOptions
-				v1.Convert_api_ListOptions_To_v1_ListOptions(&alo, &lo, nil)
-				return client.Core().Nodes().Watch(lo)
-			},
-		},
+		nodeListWatcher,
 		&v1.Node{},
 		60*time.Second,
 		// Callback Functions to trigger on add/update/delete
