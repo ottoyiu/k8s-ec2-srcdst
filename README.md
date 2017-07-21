@@ -17,6 +17,10 @@ k8s-ec2-srcdst also needs the ability to modify the EC2 instance attributes of t
 
 If you are running a Kubernetes cluster in AWS created by kops, only the master node(s) have that IAM policy set (`ec2:*`). The deployment mainfest files  (`deploy/*/*.yaml`) already sets the NodeAffinity and Tolerations to only deploy the controller on one of the master nodes.
 
+## Kops Integration
+k8s-ec2-srcdst has been incorporated as an addon in Kops that deploys alongside with Calico when `cross-subnet` mode
+is set. Please read [this document](https://github.com/kubernetes/kops/blob/master/docs/networking.md#enable-cross-subnet-mode-in-calico-aws-only) for instructions on how to enable this on a cluster deployed using Kops.
+
 
 ## Usage
 ```
