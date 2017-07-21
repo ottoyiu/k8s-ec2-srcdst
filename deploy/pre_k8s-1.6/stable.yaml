@@ -29,7 +29,7 @@ spec:
               cpu: 10m
               memory: 64Mi
           command:
-            - ./k8s-ec2-srcdst
+            - /k8s-ec2-srcdst
           env:
             - name: AWS_REGION
               value: {{AWS_REGION}}
