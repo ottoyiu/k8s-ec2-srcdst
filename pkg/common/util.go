@@ -1,8 +1,8 @@
 package common
 
 import (
-	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -20,7 +20,7 @@ func GetClientConfig(kubeconfig string) (*rest.Config, error) {
 // CopyObjToNode copies a Node object, so that no changes would be done
 // to the original Node which is part of the cache
 func CopyObjToNode(obj interface{}) (*v1.Node, error) {
-	objCopy, err := api.Scheme.Copy(obj.(*v1.Node))
+	objCopy, err := runtime.NewScheme().Copy(obj.(*v1.Node))
 	if err != nil {
 		return nil, err
 	}

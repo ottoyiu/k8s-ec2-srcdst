@@ -6,14 +6,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/glog"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
-	"github.com/golang/glog"
 	"github.com/ottoyiu/k8s-ec2-srcdst/pkg/common"
+
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/api/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
