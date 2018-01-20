@@ -105,16 +105,48 @@ func (c *Controller) disableSrcDstIfEnabled(node *v1.Node) {
 }
 
 func (c *Controller) disableSrcDstCheck(instanceID string) error {
-	_, err := c.ec2Client.ModifyInstanceAttribute(
-		&ec2.ModifyInstanceAttributeInput{
-			InstanceId: aws.String(instanceID),
-			SourceDestCheck: &ec2.AttributeBooleanValue{
-				Value: aws.Bool(false),
+	ifaces, err := c.netIfacesNeedingUpdate(instanceID)
+	if err != nil || ifaces == nil || len(ifaces) == 0 {
+		return err
+	}
+	for _, iface := range ifaces {
+		_, err := c.ec2Client.ModifyNetworkInterfaceAttribute(
+			&ec2.ModifyNetworkInterfaceAttributeInput{
+				NetworkInterfaceId: aws.String(iface),
+				SourceDestCheck: &ec2.AttributeBooleanValue{
+					Value: aws.Bool(false),
+				},
 			},
-		},
-	)
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-	return err
+func (c *Controller) netIfacesNeedingUpdate(instanceID string) ([]string, error) {
+	req := &ec2.DescribeInstancesInput{
+		InstanceIds: aws.StringSlice([]string{instanceID}),
+	}
+	rsp, err := c.ec2Client.DescribeInstances(req)
+	if err != nil {
+		return nil, err
+	}
+	ifaces := []string{}
+	for _, r := range rsp.Reservations {
+		for _, i := range r.Instances {
+			// We must check each network interface, because the instance's
+			// SourceDestCheck will show "false" if any of the network interfaces (but
+			// not necessarily all) have its SourceDestCheck set to "false".
+			for _, n := range i.NetworkInterfaces {
+				if aws.BoolValue(n.SourceDestCheck) {
+					ifaces = append(ifaces, aws.StringValue(n.NetworkInterfaceId))
+				}
+			}
+		}
+	}
+	return ifaces, nil
 }
 
 // GetInstanceIDFromProviderID will only retrieve the InstanceID from AWS

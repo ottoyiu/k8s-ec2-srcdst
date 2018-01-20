@@ -3,6 +3,7 @@ package controller
 import (
 	"testing"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/stretchr/testify/assert"
@@ -13,18 +14,47 @@ import (
 
 type mockEC2Client struct {
 	ec2iface.EC2API
-	res           *ec2.ModifyInstanceAttributeOutput
-	err           error
-	CalledCounter int
+	instancesMap              map[string]*ec2.Instance
+	DescribeCounter           int
+	ModifyCounter             int
+	ModifyNetworkInterfaceIds []string
 }
 
-func (c *mockEC2Client) ModifyInstanceAttribute(*ec2.ModifyInstanceAttributeInput) (*ec2.ModifyInstanceAttributeOutput, error) {
-	c.CalledCounter = c.CalledCounter + 1
-	return c.res, c.err
+func (c *mockEC2Client) DescribeInstances(req *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error) {
+	c.DescribeCounter++
+	selected := make([]*ec2.Instance, 0)
+	if req != nil {
+		for _, instanceID := range req.InstanceIds {
+			if instance, ok := c.instancesMap[aws.StringValue(instanceID)]; ok {
+				selected = append(selected, instance)
+			}
+		}
+	}
+	return &ec2.DescribeInstancesOutput{
+		Reservations: []*ec2.Reservation{
+			&ec2.Reservation{
+				Instances: selected,
+			},
+		},
+	}, nil
 }
 
-func NewMockEC2Client() *mockEC2Client {
-	return &mockEC2Client{CalledCounter: 0}
+func (c *mockEC2Client) ModifyNetworkInterfaceAttribute(req *ec2.ModifyNetworkInterfaceAttributeInput) (*ec2.ModifyNetworkInterfaceAttributeOutput, error) {
+	c.ModifyCounter++
+	c.ModifyNetworkInterfaceIds = append(c.ModifyNetworkInterfaceIds, aws.StringValue(req.NetworkInterfaceId))
+	return &ec2.ModifyNetworkInterfaceAttributeOutput{}, nil
+}
+
+func NewMockEC2Client(instances []*ec2.Instance) *mockEC2Client {
+	instancesMap := make(map[string]*ec2.Instance)
+	for _, instance := range instances {
+		instancesMap[aws.StringValue(instance.InstanceId)] = instance
+	}
+	return &mockEC2Client{
+		DescribeCounter: 0,
+		ModifyCounter:   0,
+		instancesMap:    instancesMap,
+	}
 }
 
 func TestDisableSrcDstIfEnabled(t *testing.T) {
@@ -36,32 +66,82 @@ func TestDisableSrcDstIfEnabled(t *testing.T) {
 	node0 := &v1.Node{Spec: v1.NodeSpec{ProviderID: "aws:///us-mock-1/i-abcdefgh", Taints: []v1.Taint{*masterTaint}}, ObjectMeta: metav1.ObjectMeta{Name: "node0", UID: "01"}}
 	node1 := &v1.Node{Spec: v1.NodeSpec{ProviderID: "aws:///us-mock-1/i-bcdefdaf", Taints: []v1.Taint{*masterTaint}}, ObjectMeta: metav1.ObjectMeta{Name: "node1", UID: "02"}}
 	node1.Annotations = annotations
+	node2 := &v1.Node{Spec: v1.NodeSpec{ProviderID: "aws:///us-mock-1/i-fedbca00", Taints: []v1.Taint{*masterTaint}}, ObjectMeta: metav1.ObjectMeta{Name: "node2", UID: "03"}}
+
+	instances := []*ec2.Instance{
+		// node0
+		&ec2.Instance{
+			InstanceId: aws.String("i-abcdefgh"),
+			NetworkInterfaces: []*ec2.InstanceNetworkInterface{
+				&ec2.InstanceNetworkInterface{
+					NetworkInterfaceId: aws.String("eni-1234567"),
+					SourceDestCheck:    aws.Bool(true),
+				},
+				&ec2.InstanceNetworkInterface{
+					NetworkInterfaceId: aws.String("eni-890abcd"),
+					SourceDestCheck:    aws.Bool(false),
+				},
+			},
+		},
+		// node1
+		&ec2.Instance{
+			InstanceId: aws.String("i-bcdefdaf"),
+			NetworkInterfaces: []*ec2.InstanceNetworkInterface{
+				&ec2.InstanceNetworkInterface{
+					NetworkInterfaceId: aws.String("eni-9876543"),
+					SourceDestCheck:    aws.Bool(false),
+				},
+			},
+		},
+		// node2
+		&ec2.Instance{
+			InstanceId: aws.String("i-fedbca00"),
+			NetworkInterfaces: []*ec2.InstanceNetworkInterface{
+				&ec2.InstanceNetworkInterface{
+					NetworkInterfaceId: aws.String("eni-1a2b3c4d"),
+					SourceDestCheck:    aws.Bool(true),
+				},
+				&ec2.InstanceNetworkInterface{
+					NetworkInterfaceId: aws.String("eni-d4c3b2a1"),
+					SourceDestCheck:    aws.Bool(true),
+				},
+			},
+		},
+	}
 
 	var tests = []struct {
-		node                     *v1.Node
-		disableSrcDstCheckCalled bool
+		node              *v1.Node
+		describeCallCount int
+		modifyCallCount   int
 	}{
-		{node0, true},
-		{node1, false},
+		{node0, 1, 1},
+		{node1, 0, 0},
+		{node2, 1, 2},
 	}
 
-	ec2Client := NewMockEC2Client()
-	kubeClient := fake.NewSimpleClientset(&v1.NodeList{Items: []v1.Node{*node0, *node1}})
-
-	c := &Controller{
-		ec2Client: ec2Client,
-		client:    kubeClient,
-	}
+	kubeClient := fake.NewSimpleClientset(&v1.NodeList{Items: []v1.Node{*node0, *node1, *node2}})
 
 	for _, tt := range tests {
-		calledCount := ec2Client.CalledCounter
+		ec2Client := NewMockEC2Client(instances)
+		c := &Controller{
+			ec2Client: ec2Client,
+			client:    kubeClient,
+		}
+
 		c.disableSrcDstIfEnabled(tt.node)
-		called := (ec2Client.CalledCounter - calledCount) > 0
 		assert.Equal(
 			t,
-			called,
-			tt.disableSrcDstCheckCalled,
-			"Verify that ModifyInstanceAttribute will get called if node needs srcdstcheck disabled",
+			tt.describeCallCount,
+			ec2Client.DescribeCounter,
+			"Verify that DescribeInstances will get called if node %q needs srcdstcheck disabled",
+			tt.node.ObjectMeta.Name,
+		)
+		assert.Equal(
+			t,
+			tt.modifyCallCount,
+			ec2Client.ModifyCounter,
+			"Verify that ModifyNetworkInterfaceAttribute will get called if node %q needs srcdstcheck disabled",
+			tt.node.ObjectMeta.Name,
 		)
 	}
 
