@@ -50,7 +50,6 @@ func NewSrcDstController(client kubernetes.Interface, ec2Client *ec2.EC2) *Contr
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    c.handler,
 			UpdateFunc: func(old, new interface{}) { c.handler(new) },
-			DeleteFunc: c.handler,
 		},
 	)
 
@@ -61,7 +60,11 @@ func NewSrcDstController(client kubernetes.Interface, ec2Client *ec2.EC2) *Contr
 
 func (c *Controller) handler(obj interface{}) {
 	// this handler makes sure that all nodes within a cluster has its src/dst check disabled in EC2
-	node := obj.(*v1.Node)
+	node, ok := obj.(*v1.Node)
+	if !ok {
+		glog.Errorf("Expected Node but handler received: %+v", obj)
+		return
+	}
 	glog.V(4).Infof("Received update of node: %s", node.Name)
 	c.disableSrcDstIfEnabled(node)
 }
