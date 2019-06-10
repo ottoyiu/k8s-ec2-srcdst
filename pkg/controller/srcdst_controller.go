@@ -23,6 +23,7 @@ type Controller struct {
 	client     kubernetes.Interface
 	Controller cache.Controller
 	ec2Client  ec2iface.EC2API
+	my_opts    *common.K8sEc2SrcdstOpts
 }
 
 const (
@@ -30,10 +31,11 @@ const (
 )
 
 // NewSrcDstController creates a new Kubernetes controller using client-go's Informer
-func NewSrcDstController(client kubernetes.Interface, ec2Client *ec2.EC2) *Controller {
+func NewSrcDstController(client kubernetes.Interface, ec2Client *ec2.EC2, my_opts *common.K8sEc2SrcdstOpts) *Controller {
 	c := &Controller{
 		client:    client,
 		ec2Client: ec2Client,
+		my_opts:   my_opts,
 	}
 
 	nodeListWatcher := cache.NewListWatchFromClient(
@@ -66,10 +68,10 @@ func (c *Controller) handler(obj interface{}) {
 		return
 	}
 	glog.V(4).Infof("Received update of node: %s", node.Name)
-	c.disableSrcDstIfEnabled(node)
+	c.disableSrcDstIfEnabled(node, obj.(*common.K8sEc2SrcdstOpts))
 }
 
-func (c *Controller) disableSrcDstIfEnabled(node *v1.Node) {
+func (c *Controller) disableSrcDstIfEnabled(node *v1.Node, my_opts *common.K8sEc2SrcdstOpts) {
 	srcDstCheckEnabled := true
 	if node.Annotations != nil {
 		if _, ok := node.Annotations[SrcDstCheckDisabledAnnotation]; ok {
