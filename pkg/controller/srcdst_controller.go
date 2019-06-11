@@ -1,12 +1,14 @@
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/mattbaird/jsonpatch"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -15,6 +17,7 @@ import (
 
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
@@ -98,10 +101,50 @@ func (c *Controller) disableSrcDstIfEnabled(node *v1.Node, my_opts *common.K8sEc
 			glog.Errorf("Failed to make copy of node: %v", err)
 			return
 		}
+
 		glog.Infof("Marking node %s with SrcDstCheckDisabledAnnotation", node.Name)
 		nodeCopy.Annotations[SrcDstCheckDisabledAnnotation] = "true"
-		if _, err := c.client.Core().Nodes().Update(nodeCopy); err != nil {
-			glog.Errorf("Failed to set %s annotation: %v", SrcDstCheckDisabledAnnotation, err)
+		if my_opts.Patchnode {
+			if my_opts.Verbose {
+				glog.Infof("Patching node %s", nodeCopy.Name)
+			}
+			// Thanks to https://github.com/tamalsaha/patch-demo/blob/master/main.go#L113 for this stanza
+			// Prep JSON for the newly changed node object
+			json_nodeCopy, err := json.Marshal(nodeCopy)
+			if err != nil {
+				glog.Error(err)
+			}
+			// Prep JSON for a copy of the old node object
+			nodeCopyOrig, err := common.CopyObjToNode(node)
+			if err != nil {
+				glog.Errorf("Failed to make an original copy of node: %v", err)
+				return
+			}
+			json_nodeCopyOrig, err := json.Marshal(nodeCopyOrig)
+			if err != nil {
+				glog.Error(err)
+			}
+			// Prepare the JSON patch
+			patch, err := jsonpatch.CreatePatch(json_nodeCopyOrig, json_nodeCopy)
+			if err != nil {
+				glog.Error(err)
+			}
+			// Fix indenting
+			json_patch, err := json.MarshalIndent(patch, "", "  ")
+			if err != nil {
+				glog.Error(err)
+			}
+			if my_opts.Verbose {
+				glog.Info(string(json_patch))
+			}
+			// https://github.com/kubernetes/client-go/blob/master/kubernetes/typed/core/v1/node.go#L170
+			if _, err := c.client.Core().Nodes().Patch(nodeCopy.Name, types.JSONPatchType, json_patch); err != nil {
+				glog.Errorf("Failed to patch %s annotation: %v", SrcDstCheckDisabledAnnotation, err)
+			}
+		} else {
+			if _, err := c.client.Core().Nodes().Update(nodeCopy); err != nil {
+				glog.Errorf("Failed to set %s annotation: %v", SrcDstCheckDisabledAnnotation, err)
+			}
 		}
 	} else {
 		glog.V(4).Infof("Skipping node %s because it already has the SrcDstCheckDisabledAnnotation", node.Name)

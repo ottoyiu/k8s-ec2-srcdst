@@ -30,7 +30,7 @@ func main() {
 	}
 
 	if *verbose && *patchnode {
-		glog.Infof("Patch mode activated")
+		glog.Info("Patch mode activated")
 	}
 
 	if *version {
