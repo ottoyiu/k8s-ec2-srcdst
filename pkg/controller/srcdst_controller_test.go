@@ -51,13 +51,11 @@ func TestDisableSrcDstIfEnabled(t *testing.T) {
 
 	var my_opts = common.K8sEc2SrcdstOpts{
 		Patchnode: false,
-		Verbose:   false,
 	}
 
 	c := &Controller{
 		ec2Client: ec2Client,
 		client:    kubeClient,
-		my_opts:   &my_opts,
 	}
 
 	for _, tt := range tests {

@@ -9,7 +9,6 @@ import (
 
 type K8sEc2SrcdstOpts struct {
 	Patchnode bool
-	Verbose   bool
 }
 
 // GetClientConfig gets the credentials necessary to connect to the Kubernetes

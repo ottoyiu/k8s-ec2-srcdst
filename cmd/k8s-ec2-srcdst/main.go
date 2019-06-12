@@ -19,18 +19,16 @@ func main() {
 	kubeconfig := flag.String("kubeconfig", "", "Path to a kubeconfig file")
 	version := flag.Bool("version", false, "Prints current k8s-ec2-srcdst version")
 	patchnode := flag.Bool("patchnode", false, "By default k8s-ec2-srcdst updates the node opbject, this flag turns on patching instead. This can be useful for when AWS api rate limiting is an issue.")
-	verbose := flag.Bool("v", false, "Be verbose")
 
 	flag.Set("logtostderr", "true")
 	flag.Parse()
 
 	var my_opts = common.K8sEc2SrcdstOpts{
 		Patchnode: *patchnode,
-		Verbose:   *verbose,
 	}
 
-	if *verbose && *patchnode {
-		glog.Info("Patch mode activated")
+	if *patchnode {
+		glog.V(4).Info("Patch mode activated")
 	}
 
 	if *version {
