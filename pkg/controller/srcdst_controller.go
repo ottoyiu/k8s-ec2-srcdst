@@ -1,12 +1,14 @@
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/golang/glog"
+	"github.com/mattbaird/jsonpatch"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -15,6 +17,7 @@ import (
 
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
@@ -30,11 +33,13 @@ const (
 )
 
 // NewSrcDstController creates a new Kubernetes controller using client-go's Informer
-func NewSrcDstController(client kubernetes.Interface, ec2Client *ec2.EC2) *Controller {
+func NewSrcDstController(client kubernetes.Interface, ec2Client *ec2.EC2, my_opts *common.K8sEc2SrcdstOpts) *Controller {
 	c := &Controller{
 		client:    client,
 		ec2Client: ec2Client,
 	}
+
+	glog.V(5).Info("Creating New Informer")
 
 	nodeListWatcher := cache.NewListWatchFromClient(
 		client.Core().RESTClient(),
@@ -48,8 +53,9 @@ func NewSrcDstController(client kubernetes.Interface, ec2Client *ec2.EC2) *Contr
 		60*time.Second,
 		// Callback Functions to trigger on add/update/delete
 		cache.ResourceEventHandlerFuncs{
-			AddFunc:    c.handler,
-			UpdateFunc: func(old, new interface{}) { c.handler(new) },
+			//AddFunc:    c.handler,
+			AddFunc:    func(new interface{}) { c.handler(new, my_opts) },
+			UpdateFunc: func(old, new interface{}) { c.handler(new, my_opts) },
 		},
 	)
 
@@ -58,18 +64,18 @@ func NewSrcDstController(client kubernetes.Interface, ec2Client *ec2.EC2) *Contr
 	return c
 }
 
-func (c *Controller) handler(obj interface{}) {
+func (c *Controller) handler(obj interface{}, my_opts *common.K8sEc2SrcdstOpts) {
 	// this handler makes sure that all nodes within a cluster has its src/dst check disabled in EC2
 	node, ok := obj.(*v1.Node)
 	if !ok {
 		glog.Errorf("Expected Node but handler received: %+v", obj)
 		return
 	}
-	glog.V(4).Infof("Received update of node: %s", node.Name)
-	c.disableSrcDstIfEnabled(node)
+	glog.V(6).Infof("Received update of node: %s", node.Name)
+	c.disableSrcDstIfEnabled(node, my_opts)
 }
 
-func (c *Controller) disableSrcDstIfEnabled(node *v1.Node) {
+func (c *Controller) disableSrcDstIfEnabled(node *v1.Node, my_opts *common.K8sEc2SrcdstOpts) {
 	srcDstCheckEnabled := true
 	if node.Annotations != nil {
 		if _, ok := node.Annotations[SrcDstCheckDisabledAnnotation]; ok {
@@ -77,47 +83,102 @@ func (c *Controller) disableSrcDstIfEnabled(node *v1.Node) {
 		}
 	}
 
+	glog.V(6).Infof("Performing disableSrcDstIfEnabled run for node %s", node.Name)
+
 	if srcDstCheckEnabled {
+
+		glog.V(5).Infof("srcDstCheckEnabled true for node %s", node.Name)
+
 		// src dst check disabled annotation does not exist
 		// call AWS ec2 api to disable
-		instanceID, err := GetInstanceIDFromProviderID(node.Spec.ProviderID)
-		if err != nil {
-			glog.Errorf("Fail to retrieve Instance ID from Provider ID: %v", node.Spec.ProviderID)
-			return
-		}
-		err = c.disableSrcDstCheck(*instanceID)
+		glog.V(5).Infof("Calling AWS to disable Node SrcDstCheck for node %s", node.Name)
+		err, instanceID := c.disableSrcDstCheck(node)
 		if err != nil {
 			glog.Errorf("Fail to disable src dst check for EC2 instance: %v; %v", *instanceID, err)
 			return
 		}
+
 		// We should not modify the cache object directly, so we make a copy first
 		nodeCopy, err := common.CopyObjToNode(node)
 		if err != nil {
 			glog.Errorf("Failed to make copy of node: %v", err)
 			return
 		}
+
 		glog.Infof("Marking node %s with SrcDstCheckDisabledAnnotation", node.Name)
 		nodeCopy.Annotations[SrcDstCheckDisabledAnnotation] = "true"
-		if _, err := c.client.Core().Nodes().Update(nodeCopy); err != nil {
-			glog.Errorf("Failed to set %s annotation: %v", SrcDstCheckDisabledAnnotation, err)
+		if my_opts.Patchnode {
+			glog.V(5).Infof("Patching node %s", nodeCopy.Name)
+			// Thanks to https://github.com/tamalsaha/patch-demo/blob/master/main.go#L113 for this stanza
+			// Prep JSON for the newly changed node object
+			json_nodeCopy, err := json.Marshal(nodeCopy)
+			if err != nil {
+				glog.Errorf("Failed to marshal nodeCopy into JSON, %v", err)
+			}
+			// Prep JSON for a copy of the old node object
+			nodeCopyOrig, err := common.CopyObjToNode(node)
+			if err != nil {
+				glog.Errorf("Failed to make an original copy of node: %v", err)
+				return
+			}
+			json_nodeCopyOrig, err := json.Marshal(nodeCopyOrig)
+			if err != nil {
+				glog.Errorf("Failed to marshal nodeCopyOrig into JSON, %v", err)
+			}
+			// Prepare the JSON patch
+			patch, err := jsonpatch.CreatePatch(json_nodeCopyOrig, json_nodeCopy)
+			if err != nil {
+				glog.Errorf("Failed to CreatePatch between JSONs, %v", err)
+			}
+			// Fix indenting
+			json_patch, err := json.MarshalIndent(patch, "", "  ")
+			if err != nil {
+				glog.Errorf("Failed to MarshalIndent: %v", err)
+			}
+			glog.V(5).Info(string(json_patch))
+			// https://github.com/kubernetes/client-go/blob/master/kubernetes/typed/core/v1/node.go#L170
+			if _, err := c.client.Core().Nodes().Patch(nodeCopy.Name, types.JSONPatchType, json_patch); err != nil {
+				glog.Errorf("Failed to patch %s annotation: %v", SrcDstCheckDisabledAnnotation, err)
+				// Sleep for a second and give it one
+				// more try. The sleep also stops us
+				// slamming AWS if api-server is
+				// containtly refusing to allow the
+				// patches.
+				time.Sleep(1 * time.Second)
+				if _, err := c.client.Core().Nodes().Patch(nodeCopy.Name, types.JSONPatchType, json_patch); err != nil {
+					glog.Errorf("Failed to patch %s annotation on second attempt: %v", SrcDstCheckDisabledAnnotation, err)
+				}
+			} else {
+				glog.V(5).Infof("Node %s has been patched", nodeCopy.Name)
+			}
+		} else {
+			glog.V(5).Infof("Performing UPDATE for node %s", node.Name)
+			if _, err := c.client.Core().Nodes().Update(nodeCopy); err != nil {
+				glog.Errorf("Failed to set %s annotation: %v", SrcDstCheckDisabledAnnotation, err)
+			}
 		}
 	} else {
-		glog.V(4).Infof("Skipping node %s because it already has the SrcDstCheckDisabledAnnotation", node.Name)
-
+		glog.V(6).Infof("Skipping node %s because it already has the SrcDstCheckDisabledAnnotation", node.Name)
 	}
 }
 
-func (c *Controller) disableSrcDstCheck(instanceID string) error {
-	_, err := c.ec2Client.ModifyInstanceAttribute(
+func (c *Controller) disableSrcDstCheck(node *v1.Node) (error, *string) {
+
+	instanceID, err := GetInstanceIDFromProviderID(node.Spec.ProviderID)
+	if err != nil {
+		glog.Errorf("Fail to retrieve Instance ID from Provider ID: %v", node.Spec.ProviderID)
+		return err, instanceID
+	}
+
+	_, err = c.ec2Client.ModifyInstanceAttribute(
 		&ec2.ModifyInstanceAttributeInput{
-			InstanceId: aws.String(instanceID),
+			InstanceId: aws.String(*instanceID),
 			SourceDestCheck: &ec2.AttributeBooleanValue{
 				Value: aws.Bool(false),
 			},
 		},
 	)
-
-	return err
+	return err, instanceID
 }
 
 // GetInstanceIDFromProviderID will only retrieve the InstanceID from AWS

@@ -7,6 +7,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
+type K8sEc2SrcdstOpts struct {
+	Patchnode bool
+}
+
 // GetClientConfig gets the credentials necessary to connect to the Kubernetes
 // cluster either through the specified kubeconfig or to get the necessary info
 // from the running pod within the cluster

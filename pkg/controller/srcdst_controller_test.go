@@ -5,6 +5,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
+	"github.com/ottoyiu/k8s-ec2-srcdst/pkg/common"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,6 +49,10 @@ func TestDisableSrcDstIfEnabled(t *testing.T) {
 	ec2Client := NewMockEC2Client()
 	kubeClient := fake.NewSimpleClientset(&v1.NodeList{Items: []v1.Node{*node0, *node1}})
 
+	var my_opts = common.K8sEc2SrcdstOpts{
+		Patchnode: false,
+	}
+
 	c := &Controller{
 		ec2Client: ec2Client,
 		client:    kubeClient,
@@ -55,7 +60,7 @@ func TestDisableSrcDstIfEnabled(t *testing.T) {
 
 	for _, tt := range tests {
 		calledCount := ec2Client.CalledCounter
-		c.disableSrcDstIfEnabled(tt.node)
+		c.disableSrcDstIfEnabled(tt.node, &my_opts)
 		called := (ec2Client.CalledCounter - calledCount) > 0
 		assert.Equal(
 			t,
