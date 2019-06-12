@@ -113,7 +113,7 @@ func (c *Controller) disableSrcDstIfEnabled(node *v1.Node, my_opts *common.K8sEc
 			// Prep JSON for the newly changed node object
 			json_nodeCopy, err := json.Marshal(nodeCopy)
 			if err != nil {
-				glog.Error(err)
+				glog.Errorf("Failed to marshal nodeCopy into JSON, %v", err)
 			}
 			// Prep JSON for a copy of the old node object
 			nodeCopyOrig, err := common.CopyObjToNode(node)
