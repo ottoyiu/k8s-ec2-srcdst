@@ -4,110 +4,158 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang/glog"
+	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
-	"github.com/ottoyiu/k8s-ec2-srcdst/pkg/common"
-
 	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
+	informer "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
 )
 
 type Controller struct {
-	client     kubernetes.Interface
-	Controller cache.Controller
-	ec2Client  ec2iface.EC2API
+	client       kubernetes.Interface
+	nodeInformer cache.SharedIndexInformer
+	nodeSynced   cache.InformerSynced
+	workqueue    workqueue.RateLimitingInterface
+	recorder     record.EventRecorder
+	ec2Client    *ec2.EC2
+	wg           sync.WaitGroup
 }
 
 const (
-	SrcDstCheckDisabledAnnotation = "kubernetes-ec2-srcdst-controller.ottoyiu.com/srcdst-check-disabled" // used as the Node Annotation key
+	// used as the Node Annotation key
+	SrcDstCheckDisabledAnnotation = "kubernetes-ec2-srcdst-controller.ottoyiu.com/srcdst-check-disabled"
 )
 
-// NewSrcDstController creates a new Kubernetes controller using client-go's Informer
-func NewSrcDstController(client kubernetes.Interface, ec2Client *ec2.EC2) *Controller {
+// NewSrcDstController creates a new Kubernetes controller to monitor Kubernetes nodes and disable src-dst
+// check on EC2 instances.
+func NewSrcDstController(client kubernetes.Interface,
+	nodeInformer informer.NodeInformer,
+	ec2Client *ec2.EC2) *Controller {
+
 	c := &Controller{
-		client:    client,
-		ec2Client: ec2Client,
+		client:       client,
+		nodeInformer: nodeInformer.Informer(),
+		nodeSynced:   nodeInformer.Informer().HasSynced,
+		workqueue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "Nodes"),
+		ec2Client:    ec2Client,
 	}
 
-	nodeListWatcher := cache.NewListWatchFromClient(
-		client.Core().RESTClient(),
-		"nodes",
-		v1.NamespaceAll,
-		fields.Everything())
-
-	_, controller := cache.NewInformer(
-		nodeListWatcher,
-		&v1.Node{},
-		60*time.Second,
-		// Callback Functions to trigger on add/update/delete
-		cache.ResourceEventHandlerFuncs{
-			AddFunc:    c.handler,
-			UpdateFunc: func(old, new interface{}) { c.handler(new) },
+	nodeInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: c.handler,
+		UpdateFunc: func(old, new interface{}) {
+			c.handler(new)
 		},
-	)
-
-	c.Controller = controller
+	})
 
 	return c
 }
 
+func (c *Controller) Run(numWorkers int, stopCh <-chan struct{}) error {
+	defer runtime.HandleCrash()
+	defer c.workqueue.ShutDown()
+
+	if ok := cache.WaitForCacheSync(stopCh, c.nodeSynced); !ok {
+		return fmt.Errorf("caches have failed to sync")
+	}
+
+	var wg sync.WaitGroup
+	for i := 0; i < numWorkers; i++ {
+		c.wg.Add(1)
+		go func() {
+			defer wg.Done()
+			go wait.Until(c.runWorker, time.Second, stopCh)
+		}()
+	}
+
+	c.wg.Wait()
+	<-stopCh
+	return nil
+}
+
+func (c *Controller) runWorker() {
+	for c.processNextWorkItem() {
+	}
+}
+
+func (c *Controller) processNextWorkItem() bool {
+	key, quit := c.workqueue.Get()
+	if quit {
+		return false
+	}
+	glog.Infof("Get key %s", key.(string))
+
+	defer c.workqueue.Forget(key)
+	if srcDstEnabled, err := c.checkSrcDstAttributeEnabled(key.(string)); err != nil {
+		glog.Error(err)
+		c.workqueue.AddRateLimited(key)
+	} else if srcDstEnabled {
+		return true
+	}
+
+	if err := c.disableSrcDstCheck(key.(string)); err != nil {
+		c.workqueue.AddRateLimited(key)
+	}
+
+	return true
+}
+
 func (c *Controller) handler(obj interface{}) {
-	// this handler makes sure that all nodes within a cluster has its src/dst check disabled in EC2
-	node, ok := obj.(*v1.Node)
-	if !ok {
-		glog.Errorf("Expected Node but handler received: %+v", obj)
+
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
 		return
 	}
-	glog.V(4).Infof("Received update of node: %s", node.Name)
-	c.disableSrcDstIfEnabled(node)
+	glog.Infof("Adding key %s", key)
+	c.workqueue.Add(key)
+	return
 }
 
-func (c *Controller) disableSrcDstIfEnabled(node *v1.Node) {
-	srcDstCheckEnabled := true
-	if node.Annotations != nil {
-		if _, ok := node.Annotations[SrcDstCheckDisabledAnnotation]; ok {
-			srcDstCheckEnabled = false
-		}
-	}
+func (c *Controller) disableSrcDstCheck(key string) error {
+	defer c.workqueue.Done(key)
 
-	if srcDstCheckEnabled {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		nodeObj, err := c.getNodeObjByKey(key)
+		if err != nil {
+			return err
+		}
+
+		nodeCopy := nodeObj.DeepCopy()
 		// src dst check disabled annotation does not exist
 		// call AWS ec2 api to disable
-		instanceID, err := GetInstanceIDFromProviderID(node.Spec.ProviderID)
+		instanceID, err := GetInstanceIDFromProviderID(nodeCopy.Spec.ProviderID)
 		if err != nil {
-			glog.Errorf("Fail to retrieve Instance ID from Provider ID: %v", node.Spec.ProviderID)
-			return
+			glog.Errorf("Failed to retrieve Instance ID from Provider ID: %v", nodeCopy.Spec.ProviderID)
+			return err
 		}
-		err = c.disableSrcDstCheck(*instanceID)
-		if err != nil {
-			glog.Errorf("Fail to disable src dst check for EC2 instance: %v; %v", *instanceID, err)
-			return
+		if err = c.modifySrcDstCheckAttribute(*instanceID); err != nil {
+			glog.Errorf("Failed to disable src dst check for EC2 instance: %v; %v", *instanceID, err)
+			return err
 		}
-		// We should not modify the cache object directly, so we make a copy first
-		nodeCopy, err := common.CopyObjToNode(node)
-		if err != nil {
-			glog.Errorf("Failed to make copy of node: %v", err)
-			return
-		}
-		glog.Infof("Marking node %s with SrcDstCheckDisabledAnnotation", node.Name)
-		nodeCopy.Annotations[SrcDstCheckDisabledAnnotation] = "true"
-		if _, err := c.client.Core().Nodes().Update(nodeCopy); err != nil {
-			glog.Errorf("Failed to set %s annotation: %v", SrcDstCheckDisabledAnnotation, err)
-		}
-	} else {
-		glog.V(4).Infof("Skipping node %s because it already has the SrcDstCheckDisabledAnnotation", node.Name)
 
-	}
+		glog.Infof("Marking node %s with SrcDstCheckDisabledAnnotation", nodeCopy.Name)
+		nodeCopy.Annotations[SrcDstCheckDisabledAnnotation] = "true"
+
+		if _, err := c.client.CoreV1().Nodes().Update(nodeCopy); err != nil {
+			glog.Errorf("Failed to set %s annotation: %v", SrcDstCheckDisabledAnnotation, err)
+			return err
+		}
+
+		return nil
+	})
 }
 
-func (c *Controller) disableSrcDstCheck(instanceID string) error {
+func (c *Controller) modifySrcDstCheckAttribute(instanceID string) error {
 	_, err := c.ec2Client.ModifyInstanceAttribute(
 		&ec2.ModifyInstanceAttributeInput{
 			InstanceId: aws.String(instanceID),
@@ -123,14 +171,13 @@ func (c *Controller) disableSrcDstCheck(instanceID string) error {
 // GetInstanceIDFromProviderID will only retrieve the InstanceID from AWS
 func GetInstanceIDFromProviderID(providerID string) (*string, error) {
 	// providerID is in this format: aws:///availability-zone/instanceID
-	// TODO: why the extra slash in the provider ID of kubernetes anyways?
 	if !strings.HasPrefix(providerID, "aws") {
-		return nil, fmt.Errorf("Node is not in AWS EC2, skipping...")
+		return nil, fmt.Errorf("node is not in AWS EC2, skipping!")
 	}
 	providerID = strings.Replace(providerID, "///", "//", 1)
 	url, err := url.Parse(providerID)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid providerID (%s): %v", providerID, err)
+		return nil, fmt.Errorf("invalid providerID (%s): %v", providerID, err)
 	}
 	instanceID := url.Path
 	instanceID = strings.Trim(instanceID, "/")
@@ -139,8 +186,39 @@ func GetInstanceIDFromProviderID(providerID string) (*string, error) {
 	// i-12345678 and i-12345678abcdef01
 	// TODO: Regex match?
 	if strings.Contains(instanceID, "/") || !strings.HasPrefix(instanceID, "i-") {
-		return nil, fmt.Errorf("Invalid format for AWS instanceID (%s)", instanceID)
+		return nil, fmt.Errorf("invalid format for AWS instanceID (%s)", instanceID)
 	}
 
 	return &instanceID, nil
+}
+
+func (c *Controller) getNodeObjByKey(key string) (nodeObj *v1.Node, err error) {
+	nodeItem, exists, err := c.nodeInformer.GetIndexer().GetByKey(key)
+	if err != nil {
+		return nil, err
+	}
+
+	if !exists {
+		return nil, fmt.Errorf("node object %s doesn't exist", key)
+	}
+
+	return nodeItem.(*v1.Node), nil
+}
+
+func (c *Controller) checkSrcDstAttributeEnabled(key string) (enabled bool, err error) {
+	defer c.workqueue.Done(key)
+
+	nodeObj, err := c.getNodeObjByKey(key)
+	if err != nil {
+		return false, err
+	}
+
+	if nodeObj.Annotations != nil {
+		if _, ok := nodeObj.Annotations[SrcDstCheckDisabledAnnotation]; ok {
+			glog.Info("The node has the annotation")
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
