@@ -12,20 +12,19 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/golang/glog"
-	"github.com/ottoyiu/k8s-ec2-srcdst"
+	srcdst "github.com/ottoyiu/k8s-ec2-srcdst"
 	"github.com/ottoyiu/k8s-ec2-srcdst/pkg/common"
 	"github.com/ottoyiu/k8s-ec2-srcdst/pkg/controller"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 )
 
 func main() {
 	kubeconfig := flag.String("kubeconfig", "", "Path to a kubeconfig file")
 	numWorkers := flag.Int("numWorkers", 1, "Number of workers to run in the controller")
 	version := flag.Bool("version", false, "Prints current k8s-ec2-srcdst version")
-
-	flag.Set("logtostderr", "true")
 	flag.Parse()
+	klog.InitFlags(nil)
 
 	if *version {
 		fmt.Println(srcdst.Version)
@@ -35,21 +34,21 @@ func main() {
 	// Build the client config - optionally using a provided kubeconfig file.
 	config, err := common.GetClientConfig(*kubeconfig)
 	if err != nil {
-		glog.Fatalf("Failed to load client config: %v", err.Error())
+		klog.Fatalf("Failed to load client config: %v", err.Error())
 	}
 
 	// Construct the Kubernetes client
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		glog.Fatalf("Failed to create kubernetes client: %v", err.Error())
+		klog.Fatalf("Failed to create kubernetes client: %v", err.Error())
 	}
 
-	glog.Infof("k8s-ec2-srcdst: %v", srcdst.Version)
+	klog.Infof("k8s-ec2-srcdst: %v", srcdst.Version)
 
 	awsConfig := &aws.Config{}
 	awsSession, err := session.NewSession(awsConfig)
 	if err != nil {
-		glog.Fatalf("Failed to create AWS session: %v", err.Error())
+		klog.Fatalf("Failed to create AWS session: %v", err.Error())
 	}
 
 	ec2Client := ec2.New(awsSession, awsConfig)
@@ -64,6 +63,6 @@ func main() {
 	go nodeInformerFactory.Start(stopCh)
 
 	if err = srcDstController.Run(*numWorkers, stopCh); err != nil {
-		glog.Fatalf("Error running controller: %v", err.Error())
+		klog.Fatalf("Error running controller: %v", err.Error())
 	}
 }

@@ -44,5 +44,6 @@ require (
 	k8s.io/api v0.0.0-20171207041120-9b9dca205a15
 	k8s.io/apimachinery v0.0.0-20171207040748-5134afd2c0c9
 	k8s.io/client-go v5.0.1+incompatible
+	k8s.io/klog v0.3.3
 	k8s.io/kube-openapi v0.0.0-20171212221656-b16ebc07f5ca // indirect
 )

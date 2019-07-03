@@ -7,14 +7,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/klog"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	informer "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -93,11 +93,10 @@ func (c *Controller) processNextWorkItem() bool {
 	if quit {
 		return false
 	}
-	glog.Infof("Get key %s", key.(string))
 
 	defer c.workqueue.Forget(key)
 	if srcDstEnabled, err := c.checkSrcDstAttributeEnabled(key.(string)); err != nil {
-		glog.Error(err)
+		klog.Error(err)
 		c.workqueue.AddRateLimited(key)
 	} else if srcDstEnabled {
 		return true
@@ -116,7 +115,6 @@ func (c *Controller) handler(obj interface{}) {
 	if err != nil {
 		return
 	}
-	glog.Infof("Adding key %s", key)
 	c.workqueue.Add(key)
 	return
 }
@@ -135,19 +133,17 @@ func (c *Controller) disableSrcDstCheck(key string) error {
 		// call AWS ec2 api to disable
 		instanceID, err := GetInstanceIDFromProviderID(nodeCopy.Spec.ProviderID)
 		if err != nil {
-			glog.Errorf("Failed to retrieve Instance ID from Provider ID: %v", nodeCopy.Spec.ProviderID)
+			klog.Errorf("Failed to retrieve Instance ID from Provider ID: %v", nodeCopy.Spec.ProviderID)
 			return err
 		}
 		if err = c.modifySrcDstCheckAttribute(*instanceID); err != nil {
-			glog.Errorf("Failed to disable src dst check for EC2 instance: %v; %v", *instanceID, err)
+			klog.Errorf("Failed to disable src dst check for EC2 instance: %v; %v", *instanceID, err)
 			return err
 		}
 
-		glog.Infof("Marking node %s with SrcDstCheckDisabledAnnotation", nodeCopy.Name)
 		nodeCopy.Annotations[SrcDstCheckDisabledAnnotation] = "true"
-
 		if _, err := c.client.CoreV1().Nodes().Update(nodeCopy); err != nil {
-			glog.Errorf("Failed to set %s annotation: %v", SrcDstCheckDisabledAnnotation, err)
+			klog.Errorf("Failed to set %s annotation: %v", SrcDstCheckDisabledAnnotation, err)
 			return err
 		}
 
@@ -215,7 +211,6 @@ func (c *Controller) checkSrcDstAttributeEnabled(key string) (enabled bool, err 
 
 	if nodeObj.Annotations != nil {
 		if _, ok := nodeObj.Annotations[SrcDstCheckDisabledAnnotation]; ok {
-			glog.Info("The node has the annotation")
 			return true, nil
 		}
 	}
