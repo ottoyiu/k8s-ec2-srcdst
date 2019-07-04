@@ -31,11 +31,7 @@ check:
 	@go vet $(shell go list ./... | grep -v '/vendor/')
 	@go test -v $(shell go list ./... | grep -v '/vendor/')
 
-
-vendor:
-		dep ensure
 clean:
 		rm -rf bin
 
-
-.PHONY: all
+.PHONY: all bin check test 
