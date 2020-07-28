@@ -1,8 +1,10 @@
 language: go
+go:
+- "1.14"
 install: true
 sudo: required
 script:
-- env GO111MODULE=on make
+- make
 services:
 - docker
 after_success:
