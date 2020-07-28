@@ -1,8 +1,11 @@
 package main // import "github.com/ottoyiu/k8s-ec2-srcdst/cmd/k8s-ec2-srcdst"
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -11,9 +14,16 @@ import (
 	srcdst "github.com/ottoyiu/k8s-ec2-srcdst"
 	"github.com/ottoyiu/k8s-ec2-srcdst/pkg/common"
 	"github.com/ottoyiu/k8s-ec2-srcdst/pkg/controller"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 )
+
+func handleSignals(term func()) {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	<-c
+	signal.Stop(c)
+	term()
+}
 
 func main() {
 	kubeconfig := flag.String("kubeconfig", "", "Path to a kubeconfig file")
@@ -27,6 +37,8 @@ func main() {
 		os.Exit(0)
 	}
 
+	glog.Infof("k8s-ec2-srcdst: %v", srcdst.Version)
+
 	// Build the client config - optionally using a provided kubeconfig file.
 	config, err := common.GetClientConfig(*kubeconfig)
 	if err != nil {
@@ -36,14 +48,22 @@ func main() {
 	// Construct the Kubernetes client
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		glog.Fatalf("Failed to create kubernetes client: %v", err)
+		glog.Fatalf("Failed to create Kubernetes client: %v", err)
 	}
 
-	glog.Infof("k8s-ec2-srcdst: %v", srcdst.Version)
+	awsSession, err := session.NewSession(&aws.Config{})
+	if err != nil {
+		glog.Fatalf("Failed to create an AWS API client session: %v", err)
+	}
+	ec2Client := ec2.New(awsSession)
 
-	awsSession := session.New()
-	awsConfig := &aws.Config{}
-	ec2Client := ec2.New(awsSession, awsConfig)
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-	controller.NewSrcDstController(client, ec2Client).Controller.Run(wait.NeverStop)
+	go handleSignals(cancel)
+	stop := ctx.Done()
+
+	ctlr := controller.NewSrcDstController(client, ec2Client)
+	ctlr.RunUntil(stop)
 }

@@ -1,12 +1,13 @@
 package controller
 
 import (
+	"context"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -23,12 +24,12 @@ func (c *mockEC2Client) ModifyInstanceAttribute(*ec2.ModifyInstanceAttributeInpu
 	return c.res, c.err
 }
 
-func NewMockEC2Client() *mockEC2Client {
+func newMockEC2Client() *mockEC2Client {
 	return &mockEC2Client{CalledCounter: 0}
 }
 
 func TestDisableSrcDstIfEnabled(t *testing.T) {
-	annotations := map[string]string{SrcDstCheckDisabledAnnotation: "true"}
+	annotations := map[string]string{srcDstCheckDisabledAnnotation: "true"}
 	masterTaint := &v1.Taint{
 		Key:    "node-role.kubernetes.io/master",
 		Effect: v1.TaintEffectNoSchedule,
@@ -45,17 +46,18 @@ func TestDisableSrcDstIfEnabled(t *testing.T) {
 		{node1, false},
 	}
 
-	ec2Client := NewMockEC2Client()
+	ec2Client := newMockEC2Client()
 	kubeClient := fake.NewSimpleClientset(&v1.NodeList{Items: []v1.Node{*node0, *node1}})
 
 	c := &Controller{
+		nodes:     kubeClient.CoreV1().Nodes(),
 		ec2Client: ec2Client,
-		client:    kubeClient,
 	}
+	ctx := context.Background()
 
 	for _, tt := range tests {
 		calledCount := ec2Client.CalledCounter
-		c.disableSrcDstIfEnabled(tt.node)
+		c.disableSrcDstIfEnabled(ctx, tt.node)
 		called := (ec2Client.CalledCounter - calledCount) > 0
 		assert.Equal(
 			t,
@@ -66,11 +68,11 @@ func TestDisableSrcDstIfEnabled(t *testing.T) {
 	}
 
 	// Validate that node did get updated with SrcDstCheckDisabledAnnotation
-	updatedNodes, err := kubeClient.Core().Nodes().List(metav1.ListOptions{})
+	updatedNodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	assert.Nil(t, err)
 	for _, updatedNode := range updatedNodes.Items {
 		assert.NotEmpty(t, updatedNode.Annotations)
-		assert.NotNil(t, updatedNode.Annotations[SrcDstCheckDisabledAnnotation])
+		assert.NotNil(t, updatedNode.Annotations[srcDstCheckDisabledAnnotation])
 
 		// K8s 1.6 support; ensure that taints still exists and have not been touched
 		assert.NotEmpty(t, updatedNode.Spec.Taints)
@@ -93,7 +95,7 @@ func TestGetInstanceIDFromProviderID(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		instanceID, err := GetInstanceIDFromProviderID(tt.providerID)
+		instanceID, err := getInstanceIDFromProviderID(tt.providerID)
 		if !tt.expectedError {
 			assert.Equal(
 				t,
